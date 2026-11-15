@@ -1,0 +1,14 @@
+[project]
+name = "api-feedback"
+version = "0.1.0"
+description = "API FastAPI que serve um extrator de avaliações em PT-BR e um classificador de alimentos, em CPU"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Os testes lentos (modelos reais) ficam fora por padrão: rode com `pytest -m slow`.
+addopts = "-m 'not slow'"
+markers = [
+    "slow: carrega os modelos reais do Hugging Face (download na primeira vez, vários segundos por geração)",
+]
