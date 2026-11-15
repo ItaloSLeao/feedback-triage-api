@@ -107,6 +107,8 @@ curl -X POST http://127.0.0.1:8000/v1/review/extract \
   -d '{"texto": "Comprei duas unidades e só veio uma. Ninguém responde no SAC."}'
 ```
 
+Formato da resposta (valores ilustrativos):
+
 ```json
 {
   "valido": true,
@@ -119,13 +121,15 @@ curl -X POST http://127.0.0.1:8000/v1/review/extract \
 }
 ```
 
-Os valores acima ilustram o formato. Quando o modelo gera algo que não é um JSON no esquema esperado, a resposta continua sendo 200, mas com `"valido": false`, os campos em `null` e o texto que o modelo produziu em `saida_bruta`. A falha fica visível para quem consome, em vez de virar um erro genérico ou um resultado inventado.
+Quando o modelo gera algo que não é um JSON no esquema esperado, a resposta continua sendo 200, mas com `"valido": false`, os campos em `null` e o texto que o modelo produziu em `saida_bruta`. A falha fica visível para quem consome, em vez de virar um erro genérico ou um resultado inventado.
 
 ### POST /v1/food/classify
 
 ```bash
 curl -X POST http://127.0.0.1:8000/v1/food/classify -F "imagem=@prato.jpg"
 ```
+
+Formato da resposta (valores ilustrativos):
 
 ```json
 {
@@ -150,6 +154,8 @@ curl -X POST http://127.0.0.1:8000/v1/feedback/analyze \
   -F "texto=A marmita chegou fria e faltou o feijão. Quero meu dinheiro de volta." \
   -F "imagem=@prato.jpg"
 ```
+
+Formato da resposta (valores ilustrativos):
 
 ```json
 {
