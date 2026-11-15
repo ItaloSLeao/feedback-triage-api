@@ -53,7 +53,9 @@ def _load_models(app: FastAPI) -> None:
             from app.extractor import Extractor
 
             t0 = time.perf_counter()
-            app.state.extractor = Extractor(settings.extractor_model, settings.device, settings.max_new_tokens)
+            app.state.extractor = Extractor(
+                settings.extractor_model, settings.device, settings.max_new_tokens, settings.repetition_penalty
+            )
             logger.info("extrator carregado modelo=%s tempo_ms=%.0f", settings.extractor_model, _ms_since(t0))
         except Exception:
             logger.exception("falha ao carregar o extrator modelo=%s", settings.extractor_model)
@@ -193,6 +195,9 @@ def create_app(
     load_models=False para não carregar (nem baixar) os modelos reais."""
     settings = settings or Settings.from_env()
     logging.basicConfig(level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # O cliente HTTP do huggingface_hub loga cada requisição ao Hub em INFO; é só ruído.
+    for noisy in ("httpx", "httpx2"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     app = FastAPI(
         title="API de análise de feedback",

@@ -12,7 +12,13 @@ from app.review_common import build_messages, parse_output
 
 
 class Extractor:
-    def __init__(self, model_id: str, device: str = "auto", max_new_tokens: int = 200):
+    def __init__(
+        self,
+        model_id: str,
+        device: str = "auto",
+        max_new_tokens: int = 200,
+        repetition_penalty: float | None = None,
+    ):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -21,6 +27,8 @@ class Extractor:
         self._torch = torch
         self.model_id = model_id
         self.max_new_tokens = max_new_tokens
+        # None mantém o repetition_penalty do generation_config.json do modelo.
+        self.extra_generation_args = {} if repetition_penalty is None else {"repetition_penalty": repetition_penalty}
         self.device, self.dtype = pick_device(device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         # Os pesos no Hub estão em fp16; na CPU são convertidos para float32.
@@ -37,6 +45,7 @@ class Extractor:
                 max_new_tokens=self.max_new_tokens,
                 do_sample=False,
                 pad_token_id=tok.pad_token_id,
+                **self.extra_generation_args,
             )
         return tok.decode(out[0, enc.input_ids.shape[1] :], skip_special_tokens=True)
 

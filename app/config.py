@@ -22,6 +22,8 @@ class Settings:
     extractor_model: str = "aitalo/qwen2.5-0.5b-avaliacoes-ptbr"
     classifier_model: str = "aitalo/convnext-tiny-comida-brasileira"
     max_new_tokens: int = 200
+    # None = usa o valor do generation_config.json do modelo (1.1), como na avaliação.
+    repetition_penalty: float | None = None
     torch_num_threads: int = 0  # 0 = padrão do PyTorch
     device: str = "auto"  # auto | cpu | cuda
     classifier_threshold: float | None = None  # None = limiar.json do repositório do modelo
@@ -37,6 +39,7 @@ class Settings:
             extractor_model=os.environ.get("EXTRACTOR_MODEL", "").strip() or d.extractor_model,
             classifier_model=os.environ.get("CLASSIFIER_MODEL", "").strip() or d.classifier_model,
             max_new_tokens=_int("MAX_NEW_TOKENS", d.max_new_tokens),
+            repetition_penalty=_float_or_none("REPETITION_PENALTY"),
             torch_num_threads=_int("TORCH_NUM_THREADS", d.torch_num_threads),
             device=os.environ.get("DEVICE", "").strip().lower() or d.device,
             classifier_threshold=_float_or_none("CLASSIFIER_THRESHOLD"),

@@ -19,7 +19,7 @@ pytestmark = pytest.mark.slow
 AVALIACOES = [
     "Produto chegou antes do prazo e muito bem embalado. Recomendo a loja.",
     "Comprei duas unidades e só veio uma. Já mandei três e-mails e ninguém responde.",
-    "O produto é bom, mas a entrega atrasou uma semana.",
+    "Ainda não recebi meu pedido e o prazo já venceu faz dez dias.",
 ]
 
 
