@@ -7,7 +7,7 @@ Uma API em FastAPI que serve dois modelos que eu treinei e publiquei no Hugging 
 
 Há também um endpoint que junta os dois: recebe o texto de um feedback e, opcionalmente, uma foto, e devolve a análise do texto, o prato identificado e uma prioridade de atendimento.
 
-Tudo roda em CPU. Este é o terceiro projeto de uma sequência: os dois primeiros foram o treino de cada modelo ([pt-review-extractor](https://github.com/ItaloSLeao/pt-review-extractor) e [ml-image-classifier](https://github.com/ItaloSLeao/ml-image-classifier)); o próximo passo, fora deste repositório, é orquestrar esta API com n8n.
+Tudo roda em CPU. Este é o terceiro projeto de uma sequência: os dois primeiros foram o treino de cada modelo ([pt-review-extractor](https://github.com/ItaloSLeao/pt-review-extractor) e [ml-image-classifier](https://github.com/ItaloSLeao/ml-image-classifier)); este repositório traz a API e o workflow de orquestração com n8n (veja [Automação com n8n](#automação-com-n8n)).
 
 ## Arquitetura
 
@@ -182,6 +182,108 @@ Formato da resposta (valores ilustrativos):
 Todo erro vem como `{"detail": "mensagem em português"}`. O formato da imagem é decidido pelo conteúdo do arquivo, aberto com Pillow, e não pelo `Content-Type` que o cliente informa.
 
 Cada resposta traz um cabeçalho `X-Request-ID`, que é o mesmo `id` que aparece no log. O log registra só id, rota, status, latência e tamanhos. O texto das avaliações e as imagens nunca são gravados.
+
+## Automação com n8n
+
+O repositório inclui um workflow no n8n ([workflows/triagem-feedback.workflow.json](workflows/triagem-feedback.workflow.json)) para orquestrar a triagem automatizada de avaliações: recebe o feedback via webhook HTTP, chama a API de análise (`POST /v1/feedback/analyze`), normaliza o resultado, responde imediatamente ao chamador e roteia a notificação conforme a prioridade calculada.
+
+### Fluxo
+
+```mermaid
+flowchart TD
+    W["Webhook feedback"] --> IMG{"Tem imagem?"}
+    IMG -- "Sim" --> API_IMG["API analisa (texto + imagem)"]
+    IMG -- "Não" --> API_TXT["API analisa (so texto)"]
+
+    API_IMG -- "Sucesso" --> NORM["Normalizar"]
+    API_TXT -- "Sucesso" --> NORM
+
+    API_IMG -- "Falha / Timeout" --> ERR_502["Responder erro 502"]
+    API_TXT -- "Falha / Timeout" --> ERR_502
+    ERR_502 --> ALERT_FAIL["Alerta: API falhou (Telegram)"]
+
+    NORM --> RESP["Responder ao chamador"]
+    RESP --> ROUTE{"Rotear por prioridade"}
+
+    ROUTE -- "alta" --> ALERT_HIGH["Alerta: prioridade alta (Telegram)"]
+    ROUTE -- "media" --> REG_MED["Registrar: media"]
+    ROUTE -- "baixa" --> REG_LOW["Registrar: baixa"]
+    ROUTE -- "indeterminada" --> MANUAL["Revisao manual (saida invalida) (Telegram)"]
+```
+
+### Como subir e configurar
+
+1. **Subir os serviços via Docker Compose**:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.n8n.yml up -d
+```
+
+A API fica disponível em `http://127.0.0.1:8000` e o n8n em `http://127.0.0.1:5678`. O n8n alcança a API internamente na rede do Docker pelo nome do serviço: `http://api:8000`.
+
+2. **Importar o workflow**:
+   - Abra `http://127.0.0.1:5678` no navegador (na primeira vez, crie sua conta de usuário local).
+   - No menu lateral ou no canto superior direito de workflows, selecione **Import from File...** e escolha [workflows/triagem-feedback.workflow.json](workflows/triagem-feedback.workflow.json).
+
+3. **Criar credenciais e configurar nós**:
+   - **Telegram**: crie uma credencial de conta do Telegram no n8n e vincule aos nós de envio (*Alerta: prioridade alta*, *Revisao manual (saida invalida)* e *Alerta: API falhou*). Em cada um desses nós, substitua `SEU_CHAT_ID` pelo identificador numérico do seu chat ou canal no Telegram.
+   - **Header Auth**: necessária **apenas se** `API_KEY` estiver definida na API. Nesse cenário, crie uma credencial de *Header Auth* no n8n com o cabeçalho `X-API-Key` e a chave correspondente; em seguida, nos dois nós *API analisa (texto + imagem)* e *API analisa (so texto)*, altere a opção **Authentication** de `None` para `Header Auth` e selecione a credencial criada.
+
+### Testes com curl
+
+- **Com imagem**:
+```bash
+curl -X POST http://localhost:5678/webhook-test/feedback \
+  -F "texto=A marmita chegou fria e atrasou mais de uma hora." \
+  -F "imagem=@prato.jpg"
+```
+
+- **Sem imagem (só texto)**:
+```bash
+curl -X POST http://localhost:5678/webhook-test/feedback \
+  -F "texto=Comprei duas unidades e só veio uma. Ninguém responde no SAC."
+```
+
+#### Diferença entre `/webhook-test/` e `/webhook/`
+
+- `/webhook-test/feedback`: rota de depuração e teste no editor do n8n. Ela só escuta enquanto o botão **Test step** ou **Listen for test event** estiver ativo no nó do webhook. Processa uma única requisição e exibe o fluxo de dados em cada nó para inspeção visual.
+- `/webhook/feedback`: rota definitiva de produção. Funciona continuamente em segundo plano assim que o workflow é ativado (chave **Active** ligada no canto superior direito do n8n), sem necessidade de manter o editor aberto.
+
+### Regras de prioridade
+
+A prioridade segue as regras documentadas em [docs/regras.md](docs/regras.md):
+
+| Saída do extrator | Sentimento negativo? | `requer_acao`? | Prioridade |
+|---|---|---|---|
+| válida | sim | sim | `alta` |
+| válida | sim | não | `media` |
+| válida | não | sim | `media` |
+| válida | não | não | `baixa` |
+| inválida | n/d | n/d | `indeterminada` |
+
+- `alta`: sentimento geral negativo **e** o modelo indicou necessidade de ação (`requer_acao = true`). Dispara alerta no Telegram.
+- `media`: quando apenas uma das duas condições ocorre. Encaminha para o nó de registro.
+- `baixa`: sentimento não negativo e sem necessidade de ação. Encaminha para o nó de registro.
+- `indeterminada`: o extrator produziu saída que não é um JSON válido. Encaminha para o nó de revisão manual no Telegram.
+- A imagem não afeta a prioridade calculada; o prato identificado entra como informação de contexto no resumo.
+
+### O que foi verificado
+
+Foram testados manualmente quatro cenários:
+
+1. **Texto com prioridade alta**: texto negativo acionável; a API calculou prioridade `alta`, o webhook respondeu 200 ao cliente e o alerta foi enviado ao Telegram.
+2. **Texto + foto com prioridade baixa**: texto sem reclamação acompanhado de imagem de alimento; a API processou ambos, classificou como `baixa` e o fluxo direcionou para o registro de baixa prioridade.
+3. **Falha da API com 502 e alerta**: simulação de indisponibilidade da API; após retentativa, o n8n respondeu com status 502 (`{"erro": "API de análise indisponível ou demorou demais"}`) ao cliente e disparou o alerta de API indisponível no Telegram.
+4. **Alerta no Telegram**: validação da formatação e envio das notificações ao bot do Telegram nos cenários críticos.
+
+> **Atenção:** o ramo de prioridade **"indeterminada" NÃO foi testado de ponta a ponta**.
+
+### Limitações
+
+- **Latência de cerca de 8 a 16 s por análise em CPU**: medição observada em chamadas isoladas (os números oficiais consolidados virão do benchmark). Por rodar em CPU com semáforo de uma inferência de texto por vez, a resposta do webhook reflete esse processamento sequencial.
+- **Um único rótulo por foto**: o classificador atribui apenas um rótulo por imagem; pratos com misturas de alimentos recebem apenas uma classe predita.
+- **Classificador treinado com recortes sobre fundo preto**: em fotos comuns de pratos servidos, com fundos reais e múltiplos elementos, a acurácia esperada é menor.
+- **Privacidade**: os nós de alerta enviam até 200 caracteres do texto do cliente (`$json.texto.slice(0, 200)`) aos servidores do Telegram.
 
 ## Testes
 
