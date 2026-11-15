@@ -208,10 +208,10 @@ Os dois aceitam `--url` e leem `API_KEY` do ambiente. As imagens de exemplo são
 <!-- latencia:inicio -->
 | Endpoint | Chamadas | p50 (ms) | p95 (ms) |
 |---|---|---|---|
-| `POST /v1/review/extract` | 20 | pendente | pendente |
-| `POST /v1/food/classify` | 20 | pendente | pendente |
+| `POST /v1/review/extract` | 20 | 5903 | 7454 |
+| `POST /v1/food/classify` | 20 | 66 | 74 |
 
-Pendente: rode `python scripts/benchmark.py` com a API no ar. O script grava `results/latencia.json` e reescreve esta tabela com os números medidos, a CPU e as versões usadas.
+Medido em 2026-11-14 com `scripts/benchmark.py`. CPU: 12th Gen Intel(R) Core(TM) i5-1235U (12 núcleos lógicos, 10 threads no PyTorch). Python 3.14.4, torch 2.15.0+cpu, transformers 5.23.0, pillow 12.1.1.
 <!-- latencia:fim -->
 
 ## Limitações

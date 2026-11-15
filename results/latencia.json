@@ -1,0 +1,35 @@
+{
+  "data": "2026-11-14T23:29:30-03:00",
+  "metodo": "1 chamada de aquecimento descartada; chamadas em sequência; tempo medido no cliente",
+  "ambiente": {
+    "cpu": "12th Gen Intel(R) Core(TM) i5-1235U",
+    "nucleos_logicos": 12,
+    "threads_torch": 10,
+    "versoes": {
+      "python": "3.14.4",
+      "torch": "2.15.0+cpu",
+      "torchvision": "0.29.2+cpu",
+      "transformers": "5.23.0",
+      "pillow": "12.1.1",
+      "fastapi": "0.163.0"
+    }
+  },
+  "endpoints": {
+    "/v1/review/extract": {
+      "n": 20,
+      "p50_ms": 5902.8,
+      "p95_ms": 7454.5,
+      "media_ms": 6178.0,
+      "min_ms": 5006.0,
+      "max_ms": 7482.6
+    },
+    "/v1/food/classify": {
+      "n": 20,
+      "p50_ms": 66.5,
+      "p95_ms": 74.3,
+      "media_ms": 67.3,
+      "min_ms": 61.2,
+      "max_ms": 75.3
+    }
+  }
+}
