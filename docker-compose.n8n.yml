@@ -1,0 +1,20 @@
+# Override para subir o n8n junto com a API.
+# Uso:  docker compose -f docker-compose.yml -f docker-compose.n8n.yml up -d
+# O n8n alcança a API pelo nome do serviço: http://api:8000
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.47.7   # depois do primeiro teste, fixe a versão (n8n --version)
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      TZ: America/Bahia
+      GENERIC_TIMEZONE: America/Bahia
+      WEBHOOK_URL: http://localhost:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - api
+
+volumes:
+  n8n_data:

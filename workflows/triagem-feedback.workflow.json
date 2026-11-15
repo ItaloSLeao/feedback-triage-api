@@ -1,0 +1,565 @@
+{
+  "name": "Triagem de feedback (texto + foto)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "feedback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "bd2cc480-80ef-53e4-b977-abc9bd7af358",
+      "name": "Webhook feedback",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "04a4b44f-50ff-5647-9e6b-7a9b95cda514"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ Object.keys($binary ?? {}).length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f2e8e614-3055-502b-86bf-3e8c91f60e19",
+      "name": "Tem imagem?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/v1/feedback/analyze",
+        "authentication": "none",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "texto",
+              "value": "={{ $json.body.texto }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "imagem",
+              "inputDataFieldName": "={{ Object.keys($binary)[0] }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "a9c441e3-bcb6-54d2-ba22-64f544e577dc",
+      "name": "API analisa (texto + imagem)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/v1/feedback/analyze",
+        "authentication": "none",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "texto",
+              "value": "={{ $json.body.texto }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "adec7af3-74d1-5c10-a3d1-3e6319e1b4fd",
+      "name": "API analisa (so texto)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "texto",
+              "type": "string",
+              "value": "={{ $('Webhook feedback').item.json.body.texto }}"
+            },
+            {
+              "id": "a2",
+              "name": "prioridade",
+              "type": "string",
+              "value": "={{ $json.prioridade ?? 'indeterminada' }}"
+            },
+            {
+              "id": "a3",
+              "name": "sentimento",
+              "type": "string",
+              "value": "={{ $json.analise_texto?.sentimento ?? 'n/d' }}"
+            },
+            {
+              "id": "a4",
+              "name": "problema_principal",
+              "type": "string",
+              "value": "={{ $json.analise_texto?.problema_principal ?? 'n/d' }}"
+            },
+            {
+              "id": "a5",
+              "name": "requer_acao",
+              "type": "boolean",
+              "value": "={{ $json.analise_texto?.requer_acao ?? false }}"
+            },
+            {
+              "id": "a6",
+              "name": "prato",
+              "type": "string",
+              "value": "={{ $json.prato?.classe ?? '' }}"
+            },
+            {
+              "id": "a8",
+              "name": "confianca_prato",
+              "type": "number",
+              "value": "={{ $json.prato?.confianca ?? 0 }}"
+            },
+            {
+              "id": "a7",
+              "name": "latencia_ms",
+              "type": "number",
+              "value": "={{ $json.latencia_ms ?? 0 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b76a567d-4e37-5ec2-9661-0eda4cc83253",
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "eaabf97b-6974-522c-92da-43a4fbf4b951",
+      "name": "Responder ao chamador",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1020,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r-alta",
+                    "leftValue": "={{ $json.prioridade }}",
+                    "rightValue": "alta",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "alta"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r-media",
+                    "leftValue": "={{ $json.prioridade }}",
+                    "rightValue": "media",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "media"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r-baixa",
+                    "leftValue": "={{ $json.prioridade }}",
+                    "rightValue": "baixa",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "baixa"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r-indeterminada",
+                    "leftValue": "={{ $json.prioridade }}",
+                    "rightValue": "indeterminada",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "indeterminada"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dc580e8b-bc76-5724-99d4-53748977dce1",
+      "name": "Rotear por prioridade",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID",
+        "text": "=🔴 Feedback prioritário\nSentimento: {{ $json.sentimento }}\nProblema: {{ $json.problema_principal }}\nPrato na foto: {{ $json.prato ? $json.prato + ' (' + Math.round($json.confianca_prato * 100) + '%)' : 'sem foto' }}\nTexto: {{ $json.texto.slice(0, 200) }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "99342aab-c5eb-525f-b70f-9f5a9266333c",
+      "name": "Alerta: prioridade alta",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1520,
+        100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram bot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "6cea28c0-1052-55d6-9a02-30d1ee400197",
+      "name": "Registrar: media",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        260
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cb49d769-a19f-51e4-89b9-5f5458428276",
+      "name": "Registrar: baixa",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID",
+        "text": "=🟡 Revisão manual: o extrator não devolveu JSON válido.\nTexto: {{ $json.texto.slice(0, 200) }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "252b9e41-1828-5eab-9722-a12c09aa77de",
+      "name": "Revisao manual (saida invalida)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1520,
+        520
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { erro: 'API de análise indisponível ou demorou demais' } }}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "168ab9af-4d73-5d0b-a657-cad2dc8249bc",
+      "name": "Responder erro 502",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        780,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID",
+        "text": "=⚠️ A API de análise falhou ou excedeu o tempo limite ao processar um feedback.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "94af1ece-398b-52d1-aa94-946b205547c1",
+      "name": "Alerta: API falhou",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        560
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook feedback": {
+      "main": [
+        [
+          {
+            "node": "Tem imagem?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem imagem?": {
+      "main": [
+        [
+          {
+            "node": "API analisa (texto + imagem)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "API analisa (so texto)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API analisa (texto + imagem)": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder erro 502",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API analisa (so texto)": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder erro 502",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Responder ao chamador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder ao chamador": {
+      "main": [
+        [
+          {
+            "node": "Rotear por prioridade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rotear por prioridade": {
+      "main": [
+        [
+          {
+            "node": "Alerta: prioridade alta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar: media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar: baixa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Revisao manual (saida invalida)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder erro 502": {
+      "main": [
+        [
+          {
+            "node": "Alerta: API falhou",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false
+}
